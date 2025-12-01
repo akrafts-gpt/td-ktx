@@ -3,6 +3,7 @@ package kotlinx.telegram.core
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 
 /**
@@ -16,7 +17,20 @@ class ResultHandlerStateFlow(
     )
 ) : TelegramFlow.ResultHandlerFlow, Flow<TdApi.Object> by sharedFlow {
 
+    override val defaultExceptionHandler: Client.ExceptionHandler = Client.ExceptionHandler { throwable ->
+        emitException(TelegramFlow.DefaultException(throwable), throwable)
+    }
+
+    override val updatesExceptionHandler: Client.ExceptionHandler = Client.ExceptionHandler { throwable ->
+        emitException(TelegramFlow.TelegramFlowUpdateException(throwable), throwable)
+    }
+
     override fun onResult(result: TdApi.Object?) {
         result?.let(sharedFlow::tryEmit)
+    }
+
+    private fun emitException(exceptionObject: TdApi.Object, throwable: Throwable?) {
+        throwable?.printStackTrace()
+        sharedFlow.tryEmit(exceptionObject)
     }
 }
