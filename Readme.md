@@ -7,6 +7,7 @@ Telegram Flow is a Kotlin-first extension toolkit for [TDLib](https://github.com
 ## Features
 - **Coroutine wrappers** for every TDLib function so you can `suspend` instead of juggling callbacks.
 - **Flow-based updates** that emit strongly typed Telegram updates with sensible defaults.
+- **Exception-aware updates** that surface TDLib handler failures through the same update flow.
 - **Extension interfaces** to organize API access around Telegram entities (users, chats, messages, etc.).
 - **Compose-ready**: works seamlessly with `ViewModel` scopes and state flows.
 
@@ -29,6 +30,12 @@ The project ships a TDLib wrapper module (`libtd-ktx`) and a Compose sample unde
 val telegramFlow = TelegramFlow()
 telegramFlow.attachClient()
 ```
+
+Call `telegramFlow.close()` when the flow is no longer needed to release the underlying TDLib client.
+
+Pass custom exception handlers if you need to intercept TDLib handler failures. By default, the flow emits
+`TelegramFlow.TelegramFlowUpdateException` or `TelegramFlow.DefaultException` when TDLib propagates errors and prints the
+stack trace for visibility.
 
 3. Provide required TDLib parameters when prompted by the authorization state flow:
 

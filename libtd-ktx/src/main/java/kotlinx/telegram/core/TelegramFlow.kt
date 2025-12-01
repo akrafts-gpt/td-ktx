@@ -1,7 +1,6 @@
 package kotlinx.telegram.core
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.filterIsInstance
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
@@ -12,13 +11,38 @@ import kotlin.coroutines.suspendCoroutine
 
 /**
  * Main class to interact with Telegram API client
- * @param resultHandler transforms results from [TdApi] client to [Flow] of the [TdApi.Object]
+ * @param resultHandler transforms updates from [TdApi] client to [Flow] of the [TdApi.Object]
+ * @param defaultExceptionHandler handles exceptions thrown by TDLib's default handler.
+ * Emits [DefaultException] by default.
+ * @param updatesExceptionHandler handles exceptions thrown by TDLib's updates handler.
+ * Emits [TelegramFlowUpdateException] by default.
  */
 class TelegramFlow(
-    private val resultHandler: ResultHandlerFlow = ResultHandlerStateFlow()
+    private val resultHandler: ResultHandlerFlow = ResultHandlerStateFlow(),
+    private val defaultExceptionHandler: Client.ExceptionHandler = resultHandler.defaultExceptionHandler,
+    private val updatesExceptionHandler: Client.ExceptionHandler = resultHandler.updatesExceptionHandler,
 ) : Flow<TdApi.Object> by resultHandler, Closeable {
 
-    interface ResultHandlerFlow : Client.ResultHandler, Flow<TdApi.Object>
+    class TelegramFlowUpdateException(val exception: Throwable?) : TdApi.Object() {
+        override fun getConstructor(): Int = CONSTRUCTOR
+
+        companion object {
+            const val CONSTRUCTOR: Int = Int.MIN_VALUE
+        }
+    }
+
+    class DefaultException(val exception: Throwable?) : TdApi.Object() {
+        override fun getConstructor(): Int = CONSTRUCTOR
+
+        companion object {
+            const val CONSTRUCTOR: Int = Int.MIN_VALUE + 1
+        }
+    }
+
+    interface ResultHandlerFlow : Client.ResultHandler, Flow<TdApi.Object> {
+        val defaultExceptionHandler: Client.ExceptionHandler
+        val updatesExceptionHandler: Client.ExceptionHandler
+    }
 
     /**
      * Telegram [Client] instance. Null if instance is not attached
@@ -37,8 +61,8 @@ class TelegramFlow(
         client = existingClient
             ?: Client.create(
                 resultHandler,
-                null,
-                null
+                defaultExceptionHandler,
+                updatesExceptionHandler
             )
     }
 
@@ -46,7 +70,7 @@ class TelegramFlow(
      * Return data flow from Telegram API of the given type [T]
      */
     inline fun <reified T : TdApi.Object> getUpdatesFlowOfType() =
-        buffer(64).filterIsInstance<T>()
+        filterIsInstance<T>()
 
     /**
      * Sends a request to the TDLib and expect a result.
@@ -94,6 +118,7 @@ class TelegramFlow(
      * Closes Client.
      */
     override fun close() {
-//        client?.close()
+        client?.close()
+        client = null
     }
 }
